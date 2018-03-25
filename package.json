@@ -1,0 +1,27 @@
+{
+  "name": "firestoremigrate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && npm link",
+    "migrate": "node dist/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/csvtojson": "^1.1.5",
+    "@types/fs-extra": "^5.0.1",
+    "@types/node": "^9.6.0",
+    "typescript": "^2.7.2"
+  },
+  "dependencies": {
+    "commander": "^2.15.1",
+    "csvtojson": "^1.1.9",
+    "firebase-admin": "^5.11.0",
+    "fs-extra": "^5.0.0"
+  },
+  "bin": {
+    "fire-migrate": "dist/index.js"
+  }
+}

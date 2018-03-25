@@ -1,0 +1,5 @@
+/node_modules
+credentials.json
+/scraps/*
+/dist/*
+
