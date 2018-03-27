@@ -1,6 +1,6 @@
-# CLI Tool for Converting JSON or CSV to Firestore Documents
+# CSV to Firestore
 
-Reads data as a CSV spreadsheet or JSON array, then adds it to the Firestore database. 
+CLI tool that reads a CSV spreadsheet or JSON array, then adds each row/item to the Firestore database. 
 
 Status: WIP
 
@@ -10,7 +10,7 @@ Status: WIP
 
 ## Typical usage
 
-Convert each row in a CSV/Excel spreadsheet to a document in the database. Firestore will generated an auto-id. 
+Convert each row in a CSV/Excel spreadsheet to a document in the database. Firestore will generate an auto-id. 
 
 `fire-migrate --src bunnies.csv --collection animals`
 
