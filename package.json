@@ -18,6 +18,7 @@
   "dependencies": {
     "commander": "^2.15.1",
     "csvtojson": "^1.1.9",
+    "excel-as-json": "^2.0.1",
     "firebase-admin": "^5.11.0",
     "fs-extra": "^5.0.0"
   },
