@@ -11,9 +11,8 @@ Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-ex
 
 ## Typical usage
 
-Convert each row in a CSV/Excel spreadsheet to a document in Firestore by running `fire-migrate <file> <collection>`
-
 ```
+# fire-migrate <file-path> <firestore-collection-path>
 fire-migrate bunnies.csv animals
 ```
 
@@ -36,57 +35,4 @@ fire-migrate lamps.xlsx products --id sku --sheet 2
 
 ### Data Format
 
-Supports CSV, XLSX, and JSON arrays. 
-
-#### XLSX Ms Excel
-
-
-#### CSV
-
-Must have a header row. See test.csv
-
-#### JSON
-
-Must be a JSON array of objects. See test.json
-
-```json
-[  
-   {  
-      "id":11111,
-      "first_name":"Breezy",
-
-   },
-   {  
-      "id":22222,
-      "first_name":"Wendy",
-
-   }
-]
-```
-
-### Data Format
-
-Supports CSV and JSON arrays. Each row in the CSV should represent a document. 
-
-#### CSV or XLSX
-
-Must have a header row. See test.csv
-
-#### JSON
-
-Must be a JSON array of objects. See test.json
-
-```json
-[  
-   {  
-      "id":11111,
-      "first_name":"Breezy",
-
-   },
-   {  
-      "id":22222,
-      "first_name":"Wendy",
-
-   }
-]
-```
+Supports CSV, XLSX, and JSON arrays. See the test files for examples. 
