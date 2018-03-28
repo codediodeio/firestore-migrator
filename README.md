@@ -1,6 +1,6 @@
-# CSV to Firestore
+# CSV/Excel to Firestore
 
-CLI tool that reads a CSV/Excel spreadsheet or JSON array, then adds each row/item to the Firestore database. 
+CLI tool that reads a CSV/Excel spreadsheet or JSON array, then adds each row/item to the Cloud Firestore database. 
 
 Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-excel-to-firestore/)
 
@@ -25,12 +25,14 @@ fire-migrate lamps.xlsx products --id sku --sheet 2
 
 ### Options
 
+```
 -V, --version            output the version number
 -i, --id [id]            Field to use for document ID
 -c, --col-oriented       XLSX column orientation. Defaults is row orientation
 -o, --omit-empty-fields  XLSX omit empty fields
 -s, --sheet [#]          XLSX Sheet # to import (default: 1)
 -h, --help               output usage information. 
+```
 
 ### Data Format
 
