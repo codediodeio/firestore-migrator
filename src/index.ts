@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import * as fs from 'fs-extra';
 import * as args from 'commander';
 import * as csv from 'csvtojson';
+import * as _ from 'lodash';
 import { processFile as processXlsx } from 'excel-as-json';
 
 let fileValue, collValue;
@@ -13,6 +14,7 @@ args
     .arguments('<file> <collection>')
     .description('Imports JSON, CSV or XLSX data to a Firestore Collection.')
     .option('-i, --id [id]', 'Field to use for document ID')
+    .option('-m, --merge', 'Merge Firestore documents where insert id exists')
     .option('-c, --col-oriented', 'XLSX column orientation. Defaults is row orientation')
     .option('-o, --omit-empty-fields', 'XLSX omit empty fields')
     .option('-s, --sheet [#]', 'XLSX Sheet # to import', '1')
@@ -71,13 +73,13 @@ async function migrate() {
             throw "Unknown file extension. Supports .json, .csv or .xlsx!";
         }
     
-        for (const item of data) {
-            const id = args.id ? item[args.id].toString() : colRef.doc().id;
-    
+        const mode = (data instanceof Array) ? 'array' : 'object';
+
+        _.forEach(data, (item,id) => {
+            id = args.id ? item[args.id].toString() : (mode === 'object') ? id : colRef.doc().id;
             const docRef = colRef.doc(id);
-    
-            batch.set(docRef, item);
-        }
+            batch.set(docRef, item, { merge: !!(args.merge) });
+        });
     
         // Commit the batch
         await batch.commit();
