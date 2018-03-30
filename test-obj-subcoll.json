@@ -1,0 +1,57 @@
+{
+  "11111":{
+    "first_name":"Wendy",
+    "last_name":"Phisher",
+    "age":22,
+    "posts":[
+      {
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"hello"
+      },
+      {
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"goodbye"
+      }
+    ]
+  },
+  "22222":{
+    "first_name":"Magen",
+    "last_name":"Bagelson",
+    "age":27,
+    "collection:posts":[
+      {
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"hello",
+        "collection:replies": [
+          {
+            "timestamp": "018-03-30T14:01:03.652Z",
+            "text": "hi"
+          }
+        ]
+      },
+      {
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"goodbye"
+      }
+    ],
+    "collection:friends":[
+      { "id": "11111" },
+      { "id": "33333" }
+    ]
+  },
+  "33333":{
+    "first_name":"Doug",
+    "last_name":"Muffty",
+    "age":55,
+    "collection:posts":{
+      "aaaa":{
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"hello"
+      },
+      "bbbb":{
+        "timestamp":"2018-03-30T14:01:03.652Z",
+        "text":"goodbye"
+      }
+    }
+  }
+}
