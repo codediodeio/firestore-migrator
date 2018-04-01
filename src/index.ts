@@ -7,147 +7,96 @@ import * as csv from 'csvtojson';
 import * as _ from 'lodash';
 import { processFile as processXlsx } from 'excel-as-json';
 
-let fileValue, collValue;
-
-const description = [
-    'Imports JSON, CSV or XLSX data to a Firestore Collection.',
-    'Supports nested sub-collections with an object key prefix, such as "collection:name".'
-];
-
-args
-    .version('0.0.2')
-    .arguments('<file> <collection>')
-    .description(description.join("\n  "))
-    .option('-i, --id [id]', 'Field to use for document ID')
-    .option('-m, --merge', 'Merge Firestore documents where insert id exists')
-    .option('-p, --subcollection-prefix [prefix]', 'Sub collection prefix', 'collection')
-    .option('-c, --col-oriented', 'XLSX column orientation. Defaults is row orientation')
-    .option('-o, --omit-empty-fields', 'XLSX omit empty fields')
-    .option('-s, --sheet [#]', 'XLSX Sheet # to import', '1')
-    .option('-l, --log', 'Output document insert paths')
-    .action((file, coll) => {
-        fileValue = file;
-        collValue = coll;
-    })
-    .parse(process.argv);
-
-if (typeof fileValue === 'undefined') {
-    console.error('No file given!');
-    args.outputHelp();
-    process.exit(1);
-}
-
-if (typeof collValue === 'undefined') {
-    console.error('No collection given!');
-    args.outputHelp();
-    process.exit(2);
-}
-
 // Firebase App Initialization
 var serviceAccount = require("../credentials.json");
-
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
 
-const db = admin.firestore();
+import * as importCollection from './importCollection';
+import * as exportCollection from './exportCollection';
 
-// Main migration function
 
-async function migrate() {
-    try {
-        const colPath = collValue;
-        const file: string = fileValue;
-    
-        // Create a batch to run an atomic write
-        const batch = db.batch();
-    
-        let data;
-        if (file.endsWith(".json")) {
-            data = await fs.readJSON(file);
-        }
+// Help Descriptions
+const rootDescription = [
+    'Import/Export JSON data to/from a Firestore Database'
+].join('\n').replace(/^/gm, '  ');
 
-        else if (file.endsWith(".csv")) {
-            data = await readCSV(file);
-        }
+const rootHelp = [
+    '',
+    'For command specific help try:',
+    '  fire-migrate import -h',
+    '  fire-migrate export -h',
+    ''
+].join('\n').replace(/^/gm, '  ');
 
-        else if (file.endsWith(".xlsx")) {
-            data = await readXLSX(file);
-        }
+const importDescription = [
+    'Import JSON data to a Firestore collection',
+    '  Optionally converts Excel or CSV to JSON before import.'
+].join('\n').replace(/^/gm, '  ');;
 
-        else {
-            throw "Unknown file extension. Supports .json, .csv or .xlsx!";
-        }
-    
-        
-        const processCollection = (data: JSON, path: string) => {
-            const mode = (data instanceof Array) ? 'array' : 'object';
-            const colRef = db.collection(path);
-            _.forEach(data, (item:object,id) => {
-                // doc-id preference: object key, invoked --id option, auto-id
-                id = (mode === 'object') ? id : (args.id && _.hasIn(item, args.id)) ? item[args.id].toString() : colRef.doc().id;
-                
-                // Look for and process sub-collections
-                const subColKeys = Object.keys(item).filter(k => k.startsWith(args.subcollectionPrefix+':'));
-                subColKeys.forEach((key:string) => {
-                    const subPath = [path, id, key.slice(1 + args.subcollectionPrefix.length) ].join('/');
-                    processCollection(item[key], subPath);
-                    delete item[key];
-                });
-                
-                // set document path/id and data
-                const docRef = colRef.doc(id);
-                batch.set(docRef, item, { merge: !!(args.merge) });
+const importHelp = [
+    '','Examples:','',
+    '  fire-migrate import --dry-run test.json myCollection',
+    '  fire-migrate import --merge test.csv myCollection',
+    '  fire-migrate i -m --id docid --sheet 3 test.xlsx myCollection',
+    ''
+].join('\n').replace(/^/gm, '  ');
 
-                // log if requested
-                args.log && console.log(docRef.path);
-            });
-        }
+const exportDescription = 
+    'Export Firestore collection(s) to a JSON file';
 
-        processCollection(data, colPath);
-    
-        // Commit the batch
-        await batch.commit();
-    
-        console.log("Firestore updated. Migration was a success!");
-    } catch (error) {
-        console.log("Migration failed!", error);
-    }
-}
+const exportHelp = [
+    '','Examples:','',
+    '  fire-migrate export --verbose --subcolls myCollection.json myCollection',
+    '  fire-migrate export users-posts.json users posts',
+    '  fire-migrate e -sv firestore-dump.json',
+    ''
+].join('\n').replace(/^/gm, '  ');
 
-function readCSV(path): Promise<any> {
-    return new Promise((resolve, reject) => {
-        let lineCount = 0;
 
-        csv()
-            .fromFile(path)
-            .on("json", data => {
-                // fired on every row read
-                lineCount++;
-            })
-            .on("end_parsed", data => {
-                console.info(`CSV read complete. ${lineCount} rows parsed.`);
-                resolve(data);
-            })
-            .on("error", err => reject(err));
+// Base options
+args.version('0.1.0')
+    .description(rootDescription)
+    .on('--help', () => {
+        console.log(rootHelp);
+    });    
+
+
+// Import options
+args.command('import')
+    .alias('i')
+    .description(importDescription)
+    .arguments('<file> <collection>')
+    .option('-i, --id [field]', 'Field to use for document ID')
+    .option('-m, --merge', 'Merge Firestore documents. Default is replace.')
+    .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix', 'collection')
+    .option('')
+    .option('-c, --col-oriented', 'XLSX column orientation. Default is row orientation')
+    .option('-o, --omit-empty-fields', 'XLSX omit empty fields')
+    .option('-s, --sheet [#]', 'XLSX Sheet # to import', '1')
+    .option('')
+    .option('-d, --dry-run', 'Perform a dry run, without committing data. Implies --verbose.')
+    .option('-v, --verbose', 'Output document insert paths')
+    .action((file, collection, options) => {
+        importCollection.execute(file, collection, options);
+    }).on('--help', () => {
+        console.log(importHelp);
     });
-}
+    
 
-function readXLSX(path): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const options = {
-            sheet: args.sheet,
-            isColOriented: args.colOriented ? true : false,
-            omitEmtpyFields: args.omitEmptyFields ? true : false
-        }
-        console.log('Reading XLSX with options', options);
-        processXlsx(path, null, options, (err,data) => {
-            if (err) reject(err);
-            console.info('XLSX read complete.');
-            resolve(data);
-        })
+// Export options
+args.command('export <file> [collections...]')
+    .alias('e')
+    .description('Export Firestore collection(s) to a JSON file')
+    .option('-s, --subcolls', 'Include sub-collections.')
+    .option('-p, --collection-prefix [prefix]', 'Collection prefix', 'collection')
+    .option('-v, --verbose', 'Output traversed document paths')
+    .action((file, collections, options) => {
+        exportCollection.execute(file, collections, options);
+    }).on('--help', () => {
+        console.log(exportHelp)
     });
-}
 
-// Run
-migrate();
+
+args.parse(process.argv);
