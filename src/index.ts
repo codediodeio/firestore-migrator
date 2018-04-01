@@ -83,14 +83,14 @@ args.command('import')
     }).on('--help', () => {
         console.log(importHelp);
     });
-    
+
 
 // Export options
 args.command('export <file> [collections...]')
     .alias('e')
     .description('Export Firestore collection(s) to a JSON file')
     .option('-s, --subcolls', 'Include sub-collections.')
-    .option('-p, --collection-prefix [prefix]', 'Collection prefix', 'collection')
+    .option('-p, --coll-prefix [prefix]', 'Collection prefix', 'collection')
     .option('-v, --verbose', 'Output traversed document paths')
     .action((file, collections, options) => {
         exportCollection.execute(file, collections, options);

@@ -55,10 +55,10 @@ function getCollection(path): Promise<any> {
             let doc = { [snap.id]: snap.data() };
 
             // log if requested
-            args.log && console.log(snap.ref.path);
+            args.verbose && console.log(snap.ref.path);
 
             // process sub-collections
-            if (args.subcollections) {
+            if (args.subcolls) {
                 const subCollPaths = await snap.ref.getCollections().then(colls => colls.map(coll => coll.path));
                 if (subCollPaths.length) {
                     const subCollections = await getCollections(subCollPaths);
@@ -70,7 +70,7 @@ function getCollection(path): Promise<any> {
         }
     }).then(() =>{
         const collId = path.split('/').pop();
-        const collPath = `${args.collectionPrefix}:${collId}`;
+        const collPath = `${args.collPrefix}:${collId}`;
         return ({[collPath]: collection });
     });            
 }   

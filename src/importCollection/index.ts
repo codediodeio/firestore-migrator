@@ -11,7 +11,7 @@ let args;
 
 export const execute = async (file, collection, options) => {    
     args = options;
-    args.log = !!(args.dryRun);
+    if( args.dryRun ) args.verbose = true;
 
     try {
     
@@ -38,6 +38,7 @@ export const execute = async (file, collection, options) => {
         if (args.dryRun) {
             console.log("Dry-run complete, Firestore was not updated!");
         } else {
+            console.log('Committing write batch...')
             await batch.commit();
             console.log("Firestore updated. Import was a success!");
         }
@@ -58,9 +59,9 @@ function writeCollection(data:JSON, path: string): Promise<any> {
             id = (mode === 'object') ? id : (args.id && _.hasIn(item, args.id)) ? item[args.id].toString() : colRef.doc().id;
             
             // Look for and process sub-collections
-            const subColKeys = Object.keys(item).filter(k => k.startsWith(args.subcollectionPrefix+':'));
+            const subColKeys = Object.keys(item).filter(k => k.startsWith(args.collPrefix+':'));
             await subColKeys.forEach(async (key:string) => {
-                const subPath = [path, id, key.slice(args.subcollectionPrefix.length + 1) ].join('/');
+                const subPath = [path, id, key.slice(args.collPrefix.length + 1) ].join('/');
                 await writeCollection(item[key], subPath);
                 delete item[key];
             });
@@ -70,7 +71,7 @@ function writeCollection(data:JSON, path: string): Promise<any> {
             batch.set(docRef, item, { merge: !!(args.merge) });
 
             // log if requested
-            args.log && console.log(docRef.path);
+            args.verbose && console.log(docRef.path);
         });
         resolve();
     });
