@@ -7,11 +7,16 @@ import { processFile as processXlsx } from 'excel-as-json';
 
 const db = admin.firestore();
 const batch = db.batch();
+let batchSetCount = 0;
 let args;
+
 
 export const execute = async (file, collection, options) => {    
     args = options;
     if( args.dryRun ) args.verbose = true;
+
+    console.log('Chunk: ' + args.chunk);
+    process.exit(1);
 
     try {
     
@@ -38,8 +43,7 @@ export const execute = async (file, collection, options) => {
         if (args.dryRun) {
             console.log("Dry-run complete, Firestore was not updated!");
         } else {
-            console.log('Committing write batch...')
-            await batch.commit();
+            batchCommit();
             console.log("Firestore updated. Import was a success!");
         }
     
@@ -48,6 +52,27 @@ export const execute = async (file, collection, options) => {
     }
 
 
+}
+
+async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
+    // Log if requested
+    args.verbose && console.log(ref.path);    
+
+    // Set the Data
+    await batch.set(ref, item, options);
+
+    // Commit batch on chunk size
+    if (!args.dryRun && (++batchSetCount % args.chunk === 0)) {
+        await batchCommit()
+    }
+}
+
+async function batchCommit() {
+    // Log if requested
+    args.verbose && console.log('Committing write batch...')
+
+    // Commit batch
+    await batch.commit();    
 }
 
 function writeCollection(data:JSON, path: string): Promise<any> {
@@ -68,11 +93,10 @@ function writeCollection(data:JSON, path: string): Promise<any> {
             
             // set document data into path/id
             const docRef = colRef.doc(id);
-            batch.set(docRef, item, { merge: !!(args.merge) });
+            await batchSet(docRef, item, { merge: !!(args.merge) });
 
-            // log if requested
-            args.verbose && console.log(docRef.path);
         });
+        
         resolve();
     });
 }
