@@ -1,9 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as fs from 'fs-extra';
-import * as csv from 'csvtojson';
 import * as _ from 'lodash';
-import { processFile as processXlsx } from 'excel-as-json';
-
 
 const db = admin.firestore();
 let args;

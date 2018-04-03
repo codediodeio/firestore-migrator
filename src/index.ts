@@ -15,6 +15,7 @@ admin.initializeApp({
 
 import * as importCollection from './importCollection';
 import * as exportCollection from './exportCollection';
+import { parse } from 'url';
 
 
 // Help Descriptions
@@ -55,6 +56,13 @@ const exportHelp = [
 ].join('\n').replace(/^/gm, '  ');
 
 
+// Some option helper functions
+
+function parseChunk(v:number) {
+    return _.clamp(v, 1, 500);
+}
+
+
 // Base options
 args.version('0.1.0')
     .description(rootDescription)
@@ -70,6 +78,7 @@ args.command('import')
     .arguments('<file> <collection>')
     .option('-i, --id [field]', 'Field to use for document ID')
     .option('-m, --merge', 'Merge Firestore documents. Default is replace.')
+    .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseChunk, 500 ) 
     .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix', 'collection')
     .option('')
     .option('-c, --col-oriented', 'XLSX column orientation. Default is row orientation')

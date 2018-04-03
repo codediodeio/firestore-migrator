@@ -1,13 +1,16 @@
 import * as admin from 'firebase-admin';
 import * as fs from 'fs-extra';
-import * as csv from 'csvtojson';
 import * as _ from 'lodash';
+import * as csv from 'csvtojson';
 import { processFile as processXlsx } from 'excel-as-json';
 
 
 const db = admin.firestore();
-const batch = db.batch();
+let batch = db.batch();
+let batchSetCount = 0;
+let totalSetCount = 0;
 let args;
+
 
 export const execute = async (file, collection, options) => {    
     args = options;
@@ -32,16 +35,15 @@ export const execute = async (file, collection, options) => {
             throw "Unknown file extension. Supports .json, .csv or .xlsx!";
         }
     
-        await writeCollection(data, collection);
-    
-        // Commit the batch
-        if (args.dryRun) {
-            console.log("Dry-run complete, Firestore was not updated!");
-        } else {
-            console.log('Committing write batch...')
-            await batch.commit();
-            console.log("Firestore updated. Import was a success!");
-        }
+        await writeCollection(data, collection);    
+
+        // Final Batch commit and completion message.
+        await batchCommit(false);
+        console.log(args.dryRun
+            ? 'Dry-Run complete, Firestore was not updated.'
+            : 'Import success, Firestore updated!'
+        );
+        console.log(`Total documents: ${totalSetCount}`);
     
     } catch (error) {
         console.log("Import failed!", error);
@@ -50,29 +52,62 @@ export const execute = async (file, collection, options) => {
 
 }
 
+async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
+    // Log if requested
+    args.verbose && console.log(ref.path);    
+
+    // Set the Document Data
+    ++totalSetCount;
+    await batch.set(ref, item, options);
+
+    // Commit batch on chunk size
+    if (++batchSetCount % args.chunk === 0) {
+        await batchCommit()
+    }
+}
+
+async function batchCommit(recycle:boolean = true) {
+    // Nothing to commit
+    if (!batchSetCount) return;
+    // Don't commit on Dry Run
+    if (args.dryRun) return;
+
+    // Log if requested
+    args.verbose && console.log('Committing write batch...')
+
+    // Commit batch
+    await batch.commit();    
+
+    // Get a new batch
+    if (recycle) {
+        batch = db.batch();
+        batchSetCount = 0;
+    }
+}
+
 function writeCollection(data:JSON, path: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const mode = (data instanceof Array) ? 'array' : 'object';
+    return new Promise(async (resolve, reject) => {
         const colRef = db.collection(path);
-        _.forEach(data, async (item:object, id) => {
+        const mode = (data instanceof Array) ? 'array' : 'object';
+        for ( let [id, item] of Object.entries(data)) {
+            
             // doc-id preference: object key, invoked --id option, auto-id
             id = (mode === 'object') ? id : (args.id && _.hasIn(item, args.id)) ? item[args.id].toString() : colRef.doc().id;
             
             // Look for and process sub-collections
             const subColKeys = Object.keys(item).filter(k => k.startsWith(args.collPrefix+':'));
-            await subColKeys.forEach(async (key:string) => {
+            for ( let key of subColKeys ) {
                 const subPath = [path, id, key.slice(args.collPrefix.length + 1) ].join('/');
                 await writeCollection(item[key], subPath);
                 delete item[key];
-            });
+            }
             
             // set document data into path/id
             const docRef = colRef.doc(id);
-            batch.set(docRef, item, { merge: !!(args.merge) });
+            await batchSet(docRef, item, { merge: !!(args.merge) });
 
-            // log if requested
-            args.verbose && console.log(docRef.path);
-        });
+        }
+        
         resolve();
     });
 }
