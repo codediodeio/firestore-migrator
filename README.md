@@ -1,8 +1,8 @@
-# CSV/Excel to Firestore
+# Fire Migrate
 
-CLI tool that impor a CSV/Excel spreadsheet or JSON array, then adds each row/item to the Cloud Firestore database. 
+CLI tool for moving data in-n-out of [Cloud Firestore](https://firebase.google.com/docs/firestore/).
 
-- Import a CSV, Excel, or JSON to Firestore
+- Import a CSV, Excel, or JSON file to Firestore
 - Export Firestore data to JSON
 
 Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-excel-to-firestore/)
