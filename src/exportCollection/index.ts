@@ -59,10 +59,10 @@ function getCollection(path): Promise<any> {
                 const subCollPaths = await snap.ref.getCollections().then(colls => colls.map(coll => coll.path));
                 if (subCollPaths.length) {
                     const subCollections = await getCollections(subCollPaths);
-                    _.assign(doc, subCollections);
+                    _.assign(doc[snap.id], subCollections);
                 }
             }
-
+            
             _.assign(collection, doc);
         }
     }).then(() =>{
