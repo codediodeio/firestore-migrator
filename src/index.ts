@@ -97,9 +97,13 @@ args.command('import')
 // Export options
 args.command('export <file> [collections...]')
     .alias('e')
-    .description('Export Firestore collection(s) to a JSON file')
+    .description('Export Firestore collection(s) to a JSON/XLSX/CSV file')
     .option('-s, --subcolls', 'Include sub-collections.')
     .option('-p, --coll-prefix [prefix]', 'Collection prefix', 'collection')
+    .option('')
+    .option('-x, --separator [@]', 'XLSX sheet/collection name separator', '@' )
+    .option('-i, --id-field [id]', 'Field name to use for document IDs', 'id')
+    .option('')
     .option('-v, --verbose', 'Output traversed document paths')
     .action((file, collections, options) => {
         exportCollection.execute(file, collections, options);
