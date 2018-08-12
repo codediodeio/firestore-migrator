@@ -19,9 +19,7 @@
   },
   "dependencies": {
     "commander": "^2.15.1",
-    "csvtojson": "^2.0.8",
     "dot-object": "^1.7.0",
-    "excel-as-json": "^2.0.1",
     "firebase-admin": "^5.11.0",
     "fs-extra": "^7.0.0",
     "lodash": "^4.17.5",
