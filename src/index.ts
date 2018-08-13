@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
 import * as admin from 'firebase-admin';
-import * as fs from 'fs-extra';
 import * as args from 'commander';
-import * as csv from 'csvtojson';
 import * as _ from 'lodash';
-import { processFile as processXlsx } from 'excel-as-json';
 
 // Firebase App Initialization
 var serviceAccount = require("../credentials.json");
@@ -75,20 +72,17 @@ args.version('0.1.0')
 args.command('import')
     .alias('i')
     .description(importDescription)
-    .arguments('<file> <collection>')
-    .option('-i, --id [field]', 'Field to use for document ID')
-    .option('-m, --merge', 'Merge Firestore documents. Default is replace.')
+    .arguments('<file> [collections...]')
+    .option('-i, --id [field]', 'Field to use for Document IDs', 'doc_id')
+    .option('-a, --auto-id [str]', 'Document ID token specifying auto generated Document ID', 'Auto-ID')
+    .option('-m, --merge', 'Merge Firestore documents. Default is Replace.')
     .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseChunk, 500 ) 
     .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix', 'collection')
     .option('')
-    .option('-c, --col-oriented', 'XLSX column orientation. Default is row orientation')
-    .option('-o, --omit-empty-fields', 'XLSX omit empty fields')
-    .option('-s, --sheet [#]', 'XLSX Sheet # to import', '1')
-    .option('')
     .option('-d, --dry-run', 'Perform a dry run, without committing data. Implies --verbose.')
     .option('-v, --verbose', 'Output document insert paths')
-    .action((file, collection, options) => {
-        importCollection.execute(file, collection, options);
+    .action((file, collections, options) => {
+        importCollection.execute(file, collections, options);
     }).on('--help', () => {
         console.log(importHelp);
     });
@@ -98,11 +92,11 @@ args.command('import')
 args.command('export <file> [collections...]')
     .alias('e')
     .description('Export Firestore collection(s) to a JSON/XLSX/CSV file')
-    .option('-s, --subcolls', 'Include sub-collections.')
+    .option('-n, --no-subcolls', 'Do not export sub-collections.')
     .option('-p, --coll-prefix [prefix]', 'Collection prefix', 'collection')
-    .option('')
-    .option('-x, --separator [@]', 'XLSX sheet/collection name separator', '@' )
-    .option('-i, --id-field [id]', 'Field name to use for document IDs', 'id')
+    .option('-i, --id-field [id]', 'Field name to use for document IDs', 'doc_id')
+    // .option('')
+    // .option('-x, --separator [/]', 'Collection/Document path separator', '/' )
     .option('')
     .option('-v, --verbose', 'Output traversed document paths')
     .action((file, collections, options) => {
