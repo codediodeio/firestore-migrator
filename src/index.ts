@@ -36,8 +36,8 @@ const importDescription = [
 const importHelp = [
     '','Examples:','',
     '  fire-migrate import --dry-run test.json myCollection',
-    '  fire-migrate import --merge test.csv myCollection',
-    '  fire-migrate i -m --id docid --sheet 3 test.xlsx myCollection',
+    '  fire-migrate import --merge test.INDEX.csv myCollection',
+    '  fire-migrate i -m --id docid test.xlsx myCollection',
     ''
 ].join('\n').replace(/^/gm, '  ');
 
@@ -46,9 +46,9 @@ const exportDescription =
 
 const exportHelp = [
     '','Examples:','',
-    '  fire-migrate export --verbose --subcolls myCollection.json myCollection',
+    '  fire-migrate export --verbose --no-subcolls myCollectionRootLevel.json myCollection',
     '  fire-migrate export users-posts.json users posts',
-    '  fire-migrate e -sv firestore-dump.json',
+    '  fire-migrate e -v firestore-dump.xlsx',
     ''
 ].join('\n').replace(/^/gm, '  ');
 
