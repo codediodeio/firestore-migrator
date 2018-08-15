@@ -32,8 +32,8 @@ export const execute = async (file: string, collections: string[], options) => {
         }
     
         let data = {};
+
         if (file.endsWith(".json")) {
-            // data[collection] = await fs.readJSON(file);
             data = await readJSON(file, collections);
         }
 
@@ -66,135 +66,8 @@ export const execute = async (file: string, collections: string[], options) => {
 
 }
 
-function dataFromJSON(json) {
-    _.forEach(json, row => {
-        dot.object(row);
-        // encodeDoc(row);
-    });
-    return json;
-}
 
-function dataFromSheet(sheet)  {
-    const json = XLSX.utils.sheet_to_json(sheet);
-    return dataFromJSON(json);
-}
-
-function JSONfromCSV(file:string) {
-    const book = XLSX.readFile(file);
-    const sheet = book.Sheets['Sheet1'];
-    return XLSX.utils.sheet_to_json(sheet);
-}
-
-function datafromCSV(file:string) {
-    const json = JSONfromCSV(file);
-    return dataFromJSON(json);
-}
-
-function readJSON(path: string, collections: string[]): Promise<any> {
-    return new Promise(async (resolve, reject) => {        
-        const json = await fs.readJSON(path);
-        const data = {};
-
-        // Selected Collections and Subcols;
-        if (collections[0] !== '/') {
-            collections.forEach(collection => {
-                if (isDocumentPath(collection)) {
-                    reject(`Invalid collection path for single collection: ${collection}`);
-                    return;
-                };
-                
-                const labelledPath = collection.split('/').map((segment, index) => {
-                    return (index % 2 === 0) ? args.collPrefix + ':' + segment : segment;
-                }).join('.');
-
-                const coll = dot.pick(labelledPath, json);
-                if (!coll) {
-                    reject(`Invalid collection path for single collection: ${collection}`);
-                    return;
-                }
-
-                data[collection] = coll;
-            });
-            resolve(data);
-            return;
-        }
-
-        // All Collections from JSON file
-        if (collections[0] === '/') {
-            _.forEach(json, (coll, key: string) => {
-                const path = key.substr(args.collPrefix.length + 1);
-                data[path] = coll;
-            });
-            resolve(data);
-            return;
-        } 
-
-        // Import options exhausted
-        reject(`Invalid collections`);
-    });
-}
-
-function readXLSXBook(path, collections: string[]): Promise<any> {
-
-    return new Promise((resolve, reject) => {
-        const book = XLSX.readFile(path);
-        const sheetCount = book.SheetNames.length;
-        const indexSheet = book.Sheets['INDEX'];
-        let data = {};
-
-        // Single Sheet as Collection from Non-Indexed Workbook
-        if (!indexSheet) {
-            const collection = collections[0];
-            if(isDocumentPath(collection)) {
-                reject(`Invalid collection path for single collection: ${collection}`);
-                return;
-            }
-            const sheetName = book.SheetNames[+args.sheet - 1];
-            const sheet = book.Sheets[sheetName];
-            data[collection] = dataFromSheet(sheet);
-            resolve(data);
-            return;
-        }
-
-        const index = XLSX.utils.sheet_to_json(indexSheet);
-
-        // Selected Collections and Sub Colls from Indexed Workbook
-        if (collections[0] !== '/') {
-            collections.forEach(collection => {                
-                const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
-                if (colls.length) {
-                    colls.forEach(coll => {
-                        const colPath = coll['Collection'];
-                        const sheetName = coll['Sheet Name'];
-                        const sheet = book.Sheets[sheetName];
-                        data[colPath] = dataFromSheet(sheet);
-                    });
-                } else {
-                    reject(`INDEX contains no paths matching: ${collection}`);
-                    return;
-                }
-            });
-            resolve(data);
-            return;
-        }
-
-        // All Collections from Indexed Workbook
-        if (collections[0] === '/') {
-            const collection = collections[0];
-            _.forEach(index, coll => {
-                const sheetName = coll['Sheet Name'];
-                const path = cleanCollectionPath([collection, coll['Collection']]);
-                const sheet = book.Sheets[sheetName];            
-                data[path] = dataFromSheet(sheet);
-            });
-            resolve(data);
-            return;
-        }
-
-        // Import options exhausted
-        reject(`Invalid collections`);
-    });
-}
+// Firestore Write/Batch Handlers
 
 async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
     // Log if requested
@@ -277,6 +150,110 @@ function writeCollection(data:JSON, path: string): Promise<any> {
 }
 
 
+// File Handling Helpers
+
+function dataFromJSON(json) {
+    _.forEach(json, row => {
+        dot.object(row);
+    });
+    return json;
+}
+
+function dataFromSheet(sheet)  {
+    const json = XLSX.utils.sheet_to_json(sheet);
+    return dataFromJSON(json);
+}
+
+function JSONfromCSV(file:string) {
+    const book = XLSX.readFile(file);
+    const sheet = book.Sheets['Sheet1'];
+    return XLSX.utils.sheet_to_json(sheet);
+}
+
+function datafromCSV(file:string) {
+    const json = JSONfromCSV(file);
+    return dataFromJSON(json);
+}
+
+
+
+// File Handlers
+
+function readJSON(path: string, collections: string[]): Promise<any> {
+    return new Promise(async (resolve, reject) => {        
+        const json = await fs.readJSON(path);
+        const data = {};
+
+        const mode = (json instanceof Array) ? 'array' : 'object';
+
+        // Array of Docs, Single Anonymous Collection;
+        if (mode === 'array') {
+            const coll = collections[0];
+            if (coll === '/' || collections.length > 1 || isDocumentPath(coll)) {
+                reject('Specify single target collection path for import of JSON array of documents.');
+                return;
+            }
+            data[coll] = json;
+            resolve(data);
+            return;
+        }
+
+        const rootJsonCollections = Object.keys(json).filter(k => k.startsWith(args.collPrefix + ':'));        
+        
+        // Docs of Keyed Objects, Single Anonymous Collection;
+        if (rootJsonCollections.length === 0) {
+            const coll = collections[0];
+            if (coll === '/' || collections.length > 1 || isDocumentPath(coll)) {
+                reject('Specify single target collection path for import of JSON keyed object documents.');
+                return;
+            }
+
+            data[collections[0]] = json;
+            resolve(data);
+            return;
+        }
+
+        // Selected Collections;
+        if (collections[0] !== '/') {
+            collections.forEach(collection => {
+                if (isDocumentPath(collection)) {
+                    console.log('ISDOC');
+                    reject(`Invalid collection path: ${collection}`);
+                    return;
+                };
+                
+                const labelledPath = collection.split('/').map((segment, index) => {
+                    return (index % 2 === 0) ? args.collPrefix + ':' + segment : segment;
+                }).join('.');
+
+                const coll = dot.pick(labelledPath, json);
+                if (!coll) {
+                    reject(`Source JSON file contains no collection named: ${collection}`);
+                    return;
+                }
+
+                data[collection] = coll;
+            });
+            resolve(data);
+            return;
+        }
+
+        // All Collections from JSON file
+        if (collections[0] === '/') {
+            rootJsonCollections.forEach(coll => {
+                const path = coll.substr(args.collPrefix.length + 1);
+                data[path] = json[coll];
+            })
+            resolve(data);
+            return;
+        } 
+
+        // Import options exhausted
+        reject(`Invalid import options`);
+    });
+}
+
+
 function readCSV(file: string, collections: string[]): Promise<any> {
     return new Promise((resolve, reject) => {
         let lineCount = 0;
@@ -290,7 +267,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
             }
             const collection = collections[0];
             if (collection === '/') {
-                reject('You have to specify an import collection for single mode CSV import.');
+                reject('Specify a collection for single mode CSV import.');
                 return;
             }
             data[collection] = datafromCSV(file);
@@ -340,5 +317,68 @@ function readCSV(file: string, collections: string[]): Promise<any> {
         // Import options exhausted
         reject(`Invalid collections or CSV`);
 
+    });
+}
+
+
+function readXLSXBook(path, collections: string[]): Promise<any> {
+
+    return new Promise((resolve, reject) => {
+        const book = XLSX.readFile(path);
+        const sheetCount = book.SheetNames.length;
+        const indexSheet = book.Sheets['INDEX'];
+        let data = {};
+
+        // Single Sheet as Collection from Non-Indexed Workbook
+        if (!indexSheet) {
+            const collection = collections[0];
+            if(isDocumentPath(collection)) {
+                reject(`Invalid collection path for single collection: ${collection}`);
+                return;
+            }
+            const sheetName = book.SheetNames[+args.sheet - 1];
+            const sheet = book.Sheets[sheetName];
+            data[collection] = dataFromSheet(sheet);
+            resolve(data);
+            return;
+        }
+
+        const index = XLSX.utils.sheet_to_json(indexSheet);
+
+        // Selected Collections and Sub Colls from Indexed Workbook
+        if (collections[0] !== '/') {
+            collections.forEach(collection => {                
+                const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
+                if (colls.length) {
+                    colls.forEach(coll => {
+                        const colPath = coll['Collection'];
+                        const sheetName = coll['Sheet Name'];
+                        const sheet = book.Sheets[sheetName];
+                        data[colPath] = dataFromSheet(sheet);
+                    });
+                } else {
+                    reject(`INDEX contains no paths matching: ${collection}`);
+                    return;
+                }
+            });
+            resolve(data);
+            return;
+        }
+
+        // All Collections from Indexed Workbook
+        if (collections[0] === '/') {
+            const collection = collections[0];
+            _.forEach(index, coll => {
+                const sheetName = coll['Sheet Name'];
+                const path = cleanCollectionPath([collection, coll['Collection']]);
+                const sheet = book.Sheets[sheetName];            
+                data[path] = dataFromSheet(sheet);
+            });
+            resolve(data);
+            return;
+        }
+
+        // Import options exhausted
+        reject(`Invalid collections`);
     });
 }
