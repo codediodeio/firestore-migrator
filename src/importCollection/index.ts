@@ -245,13 +245,12 @@ function writeCollection(data:JSON, path: string): Promise<any> {
         const mode = (data instanceof Array) ? 'array' : 'object';
         for ( let [id, item] of Object.entries(data)) {
             
-            // doc-id preference: object key, invoked --id option, auto-id
-            // id = (mode === 'object') ? id: (args.id && _.hasIn(item, args.id)) ? item[args.id].toString() : colRef.doc().id;
+            // doc-id preference: object key, invoked --id field, auto-id
             if (_.hasIn(item, args.id)) {                
                 id = item[args.id].toString();
                 delete(item[args.id]);
             }
-            if (!id || (id.toLowerCase() === args.autoId.toLowerCase())) {
+            if (!id || mode === 'array' || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
                 id = colRef.doc().id;
             }
 
