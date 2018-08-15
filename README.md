@@ -2,8 +2,8 @@
 
 CLI tool for moving data in-n-out of [Cloud Firestore](https://firebase.google.com/docs/firestore/).
 
-- Import a CSV, Excel, or JSON file to Firestore
-- Export Firestore data to JSON
+- Import/Export CSV, Excel, or JSON files to/from Firestore.
+- Encode/Decode Firestore data types such as GeoPoint, Reference, Timestamp, etc.
 
 Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-excel-to-firestore/)
 
@@ -16,8 +16,8 @@ Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-ex
 ## Import Data to Firestore
 
 - Push your local data to the Firestore database.
-- Omitting [collections...] will import all collections from source file.
-- Properly encodes to Firestore data types such GeoPoint, Reference, Timestamp, etc.
+- Selectively import [collections...] from source file to Firestore.
+- Omitting [collections...], or specifying root "/" will import all collections.
 
 ```
 import|i [options] <file> [collections...]
@@ -40,12 +40,14 @@ Examples:
 ```
 fire-migrate import --dry-run test.json myCollection
 fire-migrate import --merge test.INDEX.csv myCollection
-fire-migrate i -m --id docid test.xlsx
+fire-migrate i -m --id myDocIdField test.xlsx users posts
+fire-migrate i -v firestore-dump.json
 ```
 
 ## Export Data from Firestore
 
-- Pull data from Firestore to a JSON, CSV or XLSX file. 
+- Pull data from Firestore to a JSON, CSV or XLSX file.
+- Selectively export [collections...], or entire database with root "/".
 - Exports Sub-Collections by default, optionally disabled.
 - Splits CSV/XLSX collections into separate files/sheets with an INDEX.
 
@@ -68,5 +70,6 @@ Examples:
 ```
 fire-migrate export --verbose --no-subcolls myRootCollection.json myCollection
 fire-migrate export users-posts.json users posts
-fire-migrate e -s firestore-dump.json
+fire-migrate export path/to/indexed-csv/db.csv
+fire-migrate e -v firestore-dump.json
 ```
