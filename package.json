@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && npm link",
+    "build": "tsc",
+    "build-link": "tsc && npm link",
     "migrate": "node dist/index.js"
   },
   "author": "",
@@ -13,16 +14,17 @@
     "@types/csvtojson": "^1.1.5",
     "@types/fs-extra": "^5.0.1",
     "@types/lodash": "^4.14.106",
-    "@types/node": "^9.6.0",
-    "typescript": "^2.7.2"
+    "@types/node": "^10.5.7",
+    "typescript": "^3.0.1"
   },
   "dependencies": {
     "commander": "^2.15.1",
-    "csvtojson": "^1.1.9",
-    "excel-as-json": "^2.0.1",
+    "dot-object": "^1.7.0",
     "firebase-admin": "^5.11.0",
-    "fs-extra": "^5.0.0",
-    "lodash": "^4.17.5"
+    "fs-extra": "^7.0.0",
+    "lodash": "^4.17.5",
+    "shortid": "^2.2.12",
+    "xlsx": "^0.13.3"
   },
   "bin": {
     "fire-migrate": "dist/index.js"

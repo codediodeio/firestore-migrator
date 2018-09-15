@@ -1,0 +1,4 @@
+﻿doc_id,posts.0.timestamp,posts.0.text,posts.1.text,posts.1.timestamp,last_name,age,first_name
+11111,"{""type"":""timestamp"",""data"":""2018-06-30T22:00:00.000Z""}",hello,goodbye,"{""type"":""timestamp"",""data"":""2018-03-30T12:01:03.000Z""}",Phisher,"{""type"":""number"",""data"":22}",Wendy
+22222,,,,,Bagelson,"{""type"":""number"",""data"":27}",Magen
+33333,,,,,Muffty,"{""type"":""number"",""data"":55}",Doug
