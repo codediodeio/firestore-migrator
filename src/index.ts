@@ -61,7 +61,7 @@ function parseChunk(v:number) {
 
 
 // Base options
-args.version('0.1.0')
+args.version('0.2.1')
     .description(rootDescription)
     .on('--help', () => {
         console.log(rootHelp);
@@ -78,6 +78,8 @@ args.command('import')
     .option('-m, --merge', 'Merge Firestore documents. Default is Replace.')
     .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseChunk, 500 ) 
     .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix', 'collection')
+    .option('')
+    .option('-s, --sheet [#]', 'Single mode XLSX Sheet # to import')
     .option('')
     .option('-d, --dry-run', 'Perform a dry run, without committing data. Implies --verbose.')
     .option('-v, --verbose', 'Output document insert paths')

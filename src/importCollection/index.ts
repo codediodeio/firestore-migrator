@@ -17,6 +17,7 @@ let args;
 export const execute = async (file: string, collections: string[], options) => {    
     args = options;
     if( args.dryRun ) args.verbose = true;
+
     try {
 
         if( collections.length === 0 ) {
@@ -30,7 +31,7 @@ export const execute = async (file: string, collections: string[], options) => {
                 collections = ['/'];
             }
         }
-    
+
         let data = {};
 
         if (file.endsWith(".json")) {
@@ -261,6 +262,8 @@ function readCSV(file: string, collections: string[]): Promise<any> {
         
         // Single Mode CSV, single collection
         if (!file.endsWith('INDEX.csv')) {
+            args.verbose && console.log(`Mode: Single CSV Collection`); 
+
             if (collections.length > 1) {
                 reject('Multiple collection import from CSV requires an *.INDEX.csv file.');
                 return;
@@ -279,6 +282,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, selected collections and sub-cols
         if (collections[0] !== '/') {
+            args.verbose && console.log(`Mode: Selected collections from Indexed CSV`); 
             collections.forEach(collection => {                
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
@@ -301,6 +305,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, all collections
         if (collections[0] === '/') {
+            args.verbose && console.log(`Mode: All collections from Indexed CSV`); 
             const collection = collections[0];
             _.forEach(index, coll => {
                 const colPath = coll['Collection'];
@@ -329,15 +334,25 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
         const indexSheet = book.Sheets['INDEX'];
         let data = {};
 
-        // Single Sheet as Collection from Non-Indexed Workbook
-        if (!indexSheet) {
+        let sheetNum = args.sheet;
+        if ((sheetCount === 1) && (sheetNum == undefined)) {
+            sheetNum = 1;
+        }
+
+        // Single Sheet as Collection, typically from Non-Indexed Workbook
+        if (sheetNum !== undefined) {
+            args.verbose && console.log(`Mode: Single XLSX Sheet #${sheetNum}`); 
             const collection = collections[0];
             if(isDocumentPath(collection)) {
                 reject(`Invalid collection path for single collection: ${collection}`);
                 return;
             }
-            const sheetName = book.SheetNames[+args.sheet - 1];
+            const sheetName = book.SheetNames[+sheetNum - 1];
             const sheet = book.Sheets[sheetName];
+            if (!sheet) {
+                reject(`Sheet #${sheetNum} not found in workbook`);
+                return;
+            }
             data[collection] = dataFromSheet(sheet);
             resolve(data);
             return;
@@ -347,6 +362,7 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // Selected Collections and Sub Colls from Indexed Workbook
         if (collections[0] !== '/') {
+            args.verbose && console.log('Mode: Selected Sheets from indexed XLSX Workbook'); 
             collections.forEach(collection => {                
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
@@ -367,6 +383,7 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // All Collections from Indexed Workbook
         if (collections[0] === '/') {
+            args.verbose && console.log('Mode: All Sheets from indexed XLSX Workbook'); 
             const collection = collections[0];
             _.forEach(index, coll => {
                 const sheetName = coll['Sheet Name'];
