@@ -120,14 +120,16 @@ function writeCollection(data:JSON, path: string): Promise<any> {
         for ( let [id, item] of Object.entries(data)) {
             
             // doc-id preference: object key, invoked --id field, auto-id
+            if (mode === 'array') {
+                id = args.autoId;
+            }
             if (_.hasIn(item, args.id)) {                
                 id = item[args.id].toString();
                 delete(item[args.id]);
             }
-            if (!id || mode === 'array' || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
+            if (!id || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
                 id = colRef.doc().id;
-            }
-
+            }      
             
             // Look for and process sub-collections
             const subColKeys = Object.keys(item).filter(k => k.startsWith(args.collPrefix+':'));
