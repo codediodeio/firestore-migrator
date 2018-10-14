@@ -9,10 +9,11 @@ import { encodeDoc, cleanCollectionPath, isCollectionPath, isDocumentPath } from
 
 const db = admin.firestore();
 let batch = db.batch();
-let batchSetCount = 0;
+let batchCount = 0;
 let totalSetCount = 0;
+let totalDelCount = 0;
 let args;
-
+let delPaths = [];
 
 export const execute = async (file: string, collections: string[], options) => {    
     args = options;
@@ -58,7 +59,8 @@ export const execute = async (file: string, collections: string[], options) => {
             ? 'Dry-Run complete, Firestore was not updated.'
             : 'Import success, Firestore updated!'
         );
-        console.log(`Total documents: ${totalSetCount}`);
+        args.truncate && console.log(`Total documents deleted: ${totalDelCount}`);
+        console.log(`Total documents written: ${totalSetCount}`);
     
     } catch (error) {
         console.log("Import failed: ", error);
@@ -69,24 +71,38 @@ export const execute = async (file: string, collections: string[], options) => {
 
 
 // Firestore Write/Batch Handlers
+async function batchDel(ref: FirebaseFirestore.DocumentReference) {
+    // Log if requested
+    args.verbose && console.log(`Deleting: ${ref.path}`);
+
+    // Mark for batch delete
+    ++totalDelCount;
+    await batch.delete(ref);
+
+    // Commit batch on chunk size
+    if (++batchCount % args.chunk === 0) {
+        await batchCommit()
+    }
+
+}
 
 async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
     // Log if requested
-    args.verbose && console.log(ref.path);    
+    args.verbose && console.log(`Writing: ${ref.path}`);    
 
     // Set the Document Data
     ++totalSetCount;
     await batch.set(ref, item, options);
 
     // Commit batch on chunk size
-    if (++batchSetCount % args.chunk === 0) {
+    if (++batchCount % args.chunk === 0) {
         await batchCommit()
     }
 }
 
 async function batchCommit(recycle:boolean = true) {
     // Nothing to commit
-    if (!batchSetCount) return;
+    if (!batchCount) return;
     // Don't commit on Dry Run
     if (args.dryRun) return;
 
@@ -99,7 +115,7 @@ async function batchCommit(recycle:boolean = true) {
     // Get a new batch
     if (recycle) {
         batch = db.batch();
-        batchSetCount = 0;
+        batchCount = 0;
     }
 }
 
@@ -114,8 +130,13 @@ function writeCollections(data): Promise<any> {
 }
 
 function writeCollection(data:JSON, path: string): Promise<any> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve, reject) => {        
         const colRef = db.collection(path);
+
+        if (args.truncate) {
+            await truncateCollection(colRef);
+        }
+
         const mode = (data instanceof Array) ? 'array' : 'object';
         for ( let [id, item] of Object.entries(data)) {
             
@@ -152,9 +173,30 @@ function writeCollection(data:JSON, path: string): Promise<any> {
     });
 }
 
+async function truncateCollection(colRef: FirebaseFirestore.CollectionReference) {
+    // TODO: Consider firebase-tools:delete
+
+    const path = colRef.path;
+    if (delPaths.includes(path)) {
+        // Collection Path already processed
+        return;
+    }    
+    delPaths.push(path);
+
+    await colRef.get().then(async (snap) => {
+        for (let doc of snap.docs) {
+            // recurse sub-collections
+            const subCollPaths = await doc.ref.getCollections();
+            for (let subColRef of subCollPaths) {
+                await truncateCollection(subColRef);
+            }
+            // mark doc for deletion
+            await batchDel(doc.ref);
+        }
+    });
+}
 
 // File Handling Helpers
-
 function dataFromJSON(json) {
     _.forEach(json, row => {
         dot.object(row);

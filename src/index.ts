@@ -12,8 +12,6 @@ admin.initializeApp({
 
 import * as importCollection from './importCollection';
 import * as exportCollection from './exportCollection';
-import { parse } from 'url';
-
 
 // Help Descriptions
 const rootDescription = [
@@ -61,7 +59,7 @@ function parseChunk(v:number) {
 
 
 // Base options
-args.version('0.2.1')
+args.version('0.3.0')
     .description(rootDescription)
     .on('--help', () => {
         console.log(rootHelp);
@@ -73,13 +71,15 @@ args.command('import')
     .alias('i')
     .description(importDescription)
     .arguments('<file> [collections...]')
-    .option('-i, --id [field]', 'Field to use for Document IDs', 'doc_id')
-    .option('-a, --auto-id [str]', 'Document ID token specifying auto generated Document ID', 'Auto-ID')
+    .option('-i, --id [field]', 'Field to use for Document IDs.', 'doc_id')
+    .option('-a, --auto-id [str]', 'Document ID token specifying auto generated Document ID.', 'Auto-ID')
     .option('-m, --merge', 'Merge Firestore documents. Default is Replace.')
     .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseChunk, 500 ) 
-    .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix', 'collection')
+    .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix.', 'collection')
     .option('')
-    .option('-s, --sheet [#]', 'Single mode XLSX Sheet # to import')
+    .option('-s, --sheet [#]', 'Single mode XLSX Sheet # to import.')
+    .option('')
+    .option('-T, --truncate', 'Delete all documents from target collections before import.')
     .option('')
     .option('-d, --dry-run', 'Perform a dry run, without committing data. Implies --verbose.')
     .option('-v, --verbose', 'Output document insert paths')
