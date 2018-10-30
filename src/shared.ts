@@ -103,6 +103,19 @@ class NumberFH extends FieldHandler {
     isDecodeType = (key, val, doc) => {
         return (typeof val === 'number');
     };
+
+    public isEncodeType = (key: string, val, doc): boolean => {
+        // simple numbers, or number-like strings
+        if (+val === +val) return true;
+        if (typeof val !== 'string') return false;
+        return val.startsWith(`{"type":"${this.prefix}"`);
+    };
+    public encode = (key: string, val, doc) => {
+        if (+val === +val) {
+            return +val;
+        }
+        return this.encodeFn(key, JSON.parse(val), doc);
+    }    
 }
 
 class ReferenceFH extends FieldHandler {

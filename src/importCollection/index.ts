@@ -9,14 +9,16 @@ import { encodeDoc, cleanCollectionPath, isCollectionPath, isDocumentPath } from
 
 const db = admin.firestore();
 let batch = db.batch();
-let batchSetCount = 0;
+let batchCount = 0;
 let totalSetCount = 0;
+let totalDelCount = 0;
 let args;
-
+let delPaths = [];
 
 export const execute = async (file: string, collections: string[], options) => {    
     args = options;
     if( args.dryRun ) args.verbose = true;
+
     try {
 
         if( collections.length === 0 ) {
@@ -30,7 +32,7 @@ export const execute = async (file: string, collections: string[], options) => {
                 collections = ['/'];
             }
         }
-    
+
         let data = {};
 
         if (file.endsWith(".json")) {
@@ -57,7 +59,8 @@ export const execute = async (file: string, collections: string[], options) => {
             ? 'Dry-Run complete, Firestore was not updated.'
             : 'Import success, Firestore updated!'
         );
-        console.log(`Total documents: ${totalSetCount}`);
+        args.truncate && console.log(`Total documents deleted: ${totalDelCount}`);
+        console.log(`Total documents written: ${totalSetCount}`);
     
     } catch (error) {
         console.log("Import failed: ", error);
@@ -68,24 +71,38 @@ export const execute = async (file: string, collections: string[], options) => {
 
 
 // Firestore Write/Batch Handlers
+async function batchDel(ref: FirebaseFirestore.DocumentReference) {
+    // Log if requested
+    args.verbose && console.log(`Deleting: ${ref.path}`);
+
+    // Mark for batch delete
+    ++totalDelCount;
+    await batch.delete(ref);
+
+    // Commit batch on chunk size
+    if (++batchCount % args.chunk === 0) {
+        await batchCommit()
+    }
+
+}
 
 async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
     // Log if requested
-    args.verbose && console.log(ref.path);    
+    args.verbose && console.log(`Writing: ${ref.path}`);    
 
     // Set the Document Data
     ++totalSetCount;
     await batch.set(ref, item, options);
 
     // Commit batch on chunk size
-    if (++batchSetCount % args.chunk === 0) {
+    if (++batchCount % args.chunk === 0) {
         await batchCommit()
     }
 }
 
 async function batchCommit(recycle:boolean = true) {
     // Nothing to commit
-    if (!batchSetCount) return;
+    if (!batchCount) return;
     // Don't commit on Dry Run
     if (args.dryRun) return;
 
@@ -98,7 +115,7 @@ async function batchCommit(recycle:boolean = true) {
     // Get a new batch
     if (recycle) {
         batch = db.batch();
-        batchSetCount = 0;
+        batchCount = 0;
     }
 }
 
@@ -113,20 +130,27 @@ function writeCollections(data): Promise<any> {
 }
 
 function writeCollection(data:JSON, path: string): Promise<any> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve, reject) => {        
         const colRef = db.collection(path);
+
+        if (args.truncate) {
+            await truncateCollection(colRef);
+        }
+
         const mode = (data instanceof Array) ? 'array' : 'object';
         for ( let [id, item] of Object.entries(data)) {
             
             // doc-id preference: object key, invoked --id field, auto-id
+            if (mode === 'array') {
+                id = args.autoId;
+            }
             if (_.hasIn(item, args.id)) {                
                 id = item[args.id].toString();
                 delete(item[args.id]);
             }
-            if (!id || mode === 'array' || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
+            if (!id || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
                 id = colRef.doc().id;
-            }
-
+            }      
             
             // Look for and process sub-collections
             const subColKeys = Object.keys(item).filter(k => k.startsWith(args.collPrefix+':'));
@@ -149,9 +173,30 @@ function writeCollection(data:JSON, path: string): Promise<any> {
     });
 }
 
+async function truncateCollection(colRef: FirebaseFirestore.CollectionReference) {
+    // TODO: Consider firebase-tools:delete
+
+    const path = colRef.path;
+    if (delPaths.includes(path)) {
+        // Collection Path already processed
+        return;
+    }    
+    delPaths.push(path);
+
+    await colRef.get().then(async (snap) => {
+        for (let doc of snap.docs) {
+            // recurse sub-collections
+            const subCollPaths = await doc.ref.getCollections();
+            for (let subColRef of subCollPaths) {
+                await truncateCollection(subColRef);
+            }
+            // mark doc for deletion
+            await batchDel(doc.ref);
+        }
+    });
+}
 
 // File Handling Helpers
-
 function dataFromJSON(json) {
     _.forEach(json, row => {
         dot.object(row);
@@ -261,6 +306,8 @@ function readCSV(file: string, collections: string[]): Promise<any> {
         
         // Single Mode CSV, single collection
         if (!file.endsWith('INDEX.csv')) {
+            args.verbose && console.log(`Mode: Single CSV Collection`); 
+
             if (collections.length > 1) {
                 reject('Multiple collection import from CSV requires an *.INDEX.csv file.');
                 return;
@@ -279,6 +326,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, selected collections and sub-cols
         if (collections[0] !== '/') {
+            args.verbose && console.log(`Mode: Selected collections from Indexed CSV`); 
             collections.forEach(collection => {                
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
@@ -301,6 +349,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, all collections
         if (collections[0] === '/') {
+            args.verbose && console.log(`Mode: All collections from Indexed CSV`); 
             const collection = collections[0];
             _.forEach(index, coll => {
                 const colPath = coll['Collection'];
@@ -329,15 +378,25 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
         const indexSheet = book.Sheets['INDEX'];
         let data = {};
 
-        // Single Sheet as Collection from Non-Indexed Workbook
-        if (!indexSheet) {
+        let sheetNum = args.sheet;
+        if ((sheetCount === 1) && (sheetNum == undefined)) {
+            sheetNum = 1;
+        }
+
+        // Single Sheet as Collection, typically from Non-Indexed Workbook
+        if (sheetNum !== undefined) {
+            args.verbose && console.log(`Mode: Single XLSX Sheet #${sheetNum}`); 
             const collection = collections[0];
             if(isDocumentPath(collection)) {
                 reject(`Invalid collection path for single collection: ${collection}`);
                 return;
             }
-            const sheetName = book.SheetNames[+args.sheet - 1];
+            const sheetName = book.SheetNames[+sheetNum - 1];
             const sheet = book.Sheets[sheetName];
+            if (!sheet) {
+                reject(`Sheet #${sheetNum} not found in workbook`);
+                return;
+            }
             data[collection] = dataFromSheet(sheet);
             resolve(data);
             return;
@@ -347,6 +406,7 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // Selected Collections and Sub Colls from Indexed Workbook
         if (collections[0] !== '/') {
+            args.verbose && console.log('Mode: Selected Sheets from indexed XLSX Workbook'); 
             collections.forEach(collection => {                
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
@@ -367,6 +427,7 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // All Collections from Indexed Workbook
         if (collections[0] === '/') {
+            args.verbose && console.log('Mode: All Sheets from indexed XLSX Workbook'); 
             const collection = collections[0];
             _.forEach(index, coll => {
                 const sheetName = coll['Sheet Name'];

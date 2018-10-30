@@ -25,12 +25,16 @@ import|i [options] <file> [collections...]
 
 Options:
 ```
--i, --id [field]            Field to use for Document IDs (default: doc_id)
--a, --auto-id [str]         Document ID token specifying auto generated Document ID (default: Auto-ID)
+-i, --id [field]            Field to use for Document IDs. (default: doc_id)
+-a, --auto-id [str]         Document ID token specifying auto generated Document ID. (default: Auto-ID)
 -m, --merge                 Merge Firestore documents. Default is Replace.
 -k, --chunk [size]          Split upload into batches. Max 500 by Firestore constraints. (default: 500)
--p, --coll-prefix [prefix]  (Sub-)Collection prefix (default: collection)
-
+-p, --coll-prefix [prefix]  (Sub-)Collection prefix. (default: collection)
+                            
+-s, --sheet [#]             Single mode XLSX Sheet # to import.
+                            
+-T, --truncate              Delete all documents from target collections before import.
+                            
 -d, --dry-run               Perform a dry run, without committing data. Implies --verbose.
 -v, --verbose               Output document insert paths
 -h, --help                  output usage information
@@ -40,8 +44,7 @@ Examples:
 ```
 fire-migrate import --dry-run test.json myCollection
 fire-migrate import --merge test.INDEX.csv myCollection
-fire-migrate i -m --id myDocIdField test.xlsx users posts
-fire-migrate i -v firestore-dump.json
+fire-migrate i -m --id docid test.xlsx myCollection
 ```
 
 ## Export Data from Firestore
@@ -68,8 +71,7 @@ Options:
 
 Examples:
 ```
-fire-migrate export --verbose --no-subcolls myRootCollection.json myCollection
+fire-migrate export --verbose --no-subcolls myCollectionRootLevel.json myCollection
 fire-migrate export users-posts.json users posts
-fire-migrate export path/to/indexed-csv/db.csv
-fire-migrate e -v firestore-dump.json
+fire-migrate e -v firestore-dump.xlsx
 ```
