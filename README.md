@@ -1,5 +1,7 @@
 # Fire Migrate
 
+👀 Firestore now has an [official import/export process](https://firebase.google.com/docs/firestore/manage-data/export-import). Consider that your first option if it suits your needs. If it does not, continue reading...
+
 CLI tool for moving data in-n-out of [Cloud Firestore](https://firebase.google.com/docs/firestore/).
 
 - Import/Export CSV, Excel, or JSON files to/from Firestore.
