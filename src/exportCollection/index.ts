@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import * as shortid from 'shortid';
 import * as dot from 'dot-object';
 
-import { sortByKeysFn, decodeDoc } from '../shared';
+import { sortByKeysFn, decodeDoc, cleanCollectionPath } from '../shared';
 
 const db = admin.firestore();
 let args;
@@ -14,12 +14,20 @@ export const execute = async (file: string, collectionPaths: string[], options) 
     args = options;
     let json = {};
 
-    // If no collection arguments, select all root collections
-    if (collectionPaths.length === 0) {
-        console.log('Selecting root collections...');
-        collectionPaths = await db.getCollections().then(colls => colls.map(coll => coll.path));    
+    if( collectionPaths.length === 0 ) {
+        // root if no paths
+        collectionPaths = ['/'];
+    } else {
+        // clean all collection paths
+        collectionPaths.map(cleanCollectionPath);
+        // root overrides all other selections
+        if (collectionPaths.includes('/')) {
+            console.log('Selecting root collections...');
+            collectionPaths = await db.getCollections().then(colls => colls.map(coll => coll.path));             
+        }
     }
     
+    args.chunk && console.log(`Chunking read operations per collection to: ${args.chunk}`);
     console.log('Getting selected collections...');
     getCollections(collectionPaths)
         .then(collections => {
@@ -69,47 +77,63 @@ function getCollections(paths): Promise<any> {
             reject(err);
         }
     });    
-} 
+}
 
-function getCollection(path): Promise<any> {
+async function getCollection(path): Promise<any> {
+    const limit = +args.chunk;
     let collection = {};
+    let moreSnaps = true;
+    let docCount = 0;
+    let startAfter = null;
+    let snaps;
+    let query;
+    
+    query = db.collection(path);
 
-    return db.collection(path).get().then( async snaps => {
-        // try {
+    do {
+        if (startAfter) {
+            query = query.startAfter(startAfter);            
+        }
+        if (limit) {
+            query = query.limit(limit);
+        }        
+        snaps = await query.get();
 
-            if (snaps.size === 0) {
-                throw `No ducuments in collection: ${path}`;
-            };
+        moreSnaps = (snaps.size === limit);
 
-            for (let snap of snaps.docs) {
-                let doc = { [snap.id]: snap.data() };
-
-                // log if requested
-                args.verbose && console.log(snap.ref.path);
-
-                // Decode Doc
-                decodeDoc(doc[snap.id]);
-
-                // process sub-collections
-                if (args.subcolls) {
-                    const subCollPaths = await snap.ref.getCollections().then(colls => colls.map(coll => coll.path));
-                    if (subCollPaths.length) {
-                        const subCollections = await getCollections(subCollPaths);
-                        _.assign(doc[snap.id], subCollections);
-                    }
+        for (let snap of snaps.docs) {
+            let doc = { [snap.id]: snap.data() };
+            docCount++;
+            startAfter = snap;
+    
+            // log if requested
+            args.verbose && console.log(snap.ref.path);
+    
+            // Decode Doc
+            decodeDoc(doc[snap.id]);
+    
+            // process sub-collections
+            if (args.subcolls) {
+                const subCollPaths = await snap.ref.getCollections().then(colls => colls.map(coll => coll.path));
+                if (subCollPaths.length) {
+                    const subCollections = await getCollections(subCollPaths);
+                    _.assign(doc[snap.id], subCollections);
                 }
-                
-                // doc to collection
-                _.assign(collection, doc);
             }
-        // } catch (error) {
-        //     console.log(error);
-        // }
-    }).then(() =>{
-        const collId = path.split('/').pop();
-        const collPath = `${args.collPrefix}:${collId}`;
-        return ({[collPath]: collection });
-    });
+            
+            // doc to collection
+            _.assign(collection, doc);
+        }
+
+    } while (moreSnaps);
+    
+    if (docCount === 0) {
+        throw `No ducuments in collection: ${path}`;
+    };
+
+    const collId = path.split('/').pop();
+    const collPath = `${args.collPrefix}:${collId}`;
+    return ({[collPath]: collection });
 }   
 
 function bookWriteCSV(book: XLSX.WorkBook, file: string) {
