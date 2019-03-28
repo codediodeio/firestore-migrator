@@ -4,6 +4,8 @@ import * as admin from 'firebase-admin';
 import * as args from 'commander';
 import * as _ from 'lodash';
 
+var pkg = require('../package.json');
+
 // Firebase App Initialization
 var serviceAccount = require("../credentials.json");
 admin.initializeApp({
@@ -53,13 +55,17 @@ const exportHelp = [
 
 // Some option helper functions
 
-function parseChunk(v:number) {
+function parseImportChunk(v:number) {
     return _.clamp(v, 1, 500);
+}
+
+function parseExportChunk(v:any) {
+    return parseInt(v, 10);
 }
 
 
 // Base options
-args.version('0.3.0')
+args.version(pkg.version)
     .description(rootDescription)
     .on('--help', () => {
         console.log(rootHelp);
@@ -74,7 +80,7 @@ args.command('import')
     .option('-i, --id [field]', 'Field to use for Document IDs.', 'doc_id')
     .option('-a, --auto-id [str]', 'Document ID token specifying auto generated Document ID.', 'Auto-ID')
     .option('-m, --merge', 'Merge Firestore documents. Default is Replace.')
-    .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseChunk, 500 ) 
+    .option('-k, --chunk [size]', 'Split upload into batches. Max 500 by Firestore constraints.', parseImportChunk, 500 ) 
     .option('-p, --coll-prefix [prefix]', '(Sub-)Collection prefix.', 'collection')
     .option('')
     .option('-s, --sheet [#]', 'Single mode XLSX Sheet # to import.')
@@ -97,6 +103,7 @@ args.command('export <file> [collections...]')
     .option('-n, --no-subcolls', 'Do not export sub-collections.')
     .option('-p, --coll-prefix [prefix]', 'Collection prefix', 'collection')
     .option('-i, --id-field [id]', 'Field name to use for document IDs', 'doc_id')
+    .option('-k, --chunk [size]', 'Split download process into batches by size per collection.', parseExportChunk, 0 ) 
     // .option('')
     // .option('-x, --separator [/]', 'Collection/Document path separator', '/' )
     .option('')
