@@ -13,7 +13,7 @@ Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-ex
 
 - Clone and run `npm install`
 - Download the service account from your Firebase project settings, then save it as `credentials.json` in the project root. 
-- `npm run build` and you're off and running.
+- `npm run build-link` and you're off and running.
 
 ## Import Data to Firestore
 
@@ -22,7 +22,7 @@ Watch the [screencast](https://angularfirebase.com/lessons/import-csv-json-or-ex
 - Omitting [collections...], or specifying root "/" will import all collections.
 
 ```
-import|i [options] <file> [collections...]
+fire-migrate import|i [options] <file> [collections...]
 ```
 
 Options:
@@ -57,7 +57,7 @@ fire-migrate i -m --id docid test.xlsx myCollection
 - Splits CSV/XLSX collections into separate files/sheets with an INDEX.
 
 ```
-export|e [options] <file> [collections...]
+fire-migrate export|e [options] <file> [collections...]
 ```
 
 Options:
