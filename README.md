@@ -66,6 +66,7 @@ Options:
 -n, --no-subcolls           Do not export sub-collections.
 -p, --coll-prefix [prefix]  Collection prefix (default: collection)
 -i, --id-field [id]         Field name to use for document IDs (default: doc_id)
+-r, --room-name-includes [room-name]  partial value for the room name (normally a user ID)
 
 -v, --verbose               Output traversed document paths
 -h, --help                  output usage information
@@ -73,7 +74,5 @@ Options:
 
 Examples:
 ```
-fire-migrate export --verbose --no-subcolls myCollectionRootLevel.json myCollection
-fire-migrate export users-posts.json users posts
-fire-migrate e -v firestore-dump.xlsx
+fire-migrate e -v -r 1234-1254 johnny_davis_chat_history.xlsx rooms
 ```

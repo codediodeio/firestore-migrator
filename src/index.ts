@@ -99,6 +99,7 @@ args.command('export <file> [collections...]')
     .option('-i, --id-field [id]', 'Field name to use for document IDs', 'doc_id')
     // .option('')
     // .option('-x, --separator [/]', 'Collection/Document path separator', '/' )
+    .option('-r, --room-name-includes [room-name]', 'partial value for the room name (normally a user ID)')
     .option('')
     .option('-v, --verbose', 'Output traversed document paths')
     .action((file, collections, options) => {

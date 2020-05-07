@@ -12,19 +12,19 @@
   "license": "ISC",
   "devDependencies": {
     "@types/csvtojson": "^1.1.5",
-    "@types/fs-extra": "^5.0.1",
-    "@types/lodash": "^4.14.106",
-    "@types/node": "^10.5.7",
-    "typescript": "^3.0.1"
+    "@types/fs-extra": "^5.1.0",
+    "@types/lodash": "^4.14.150",
+    "@types/node": "^10.17.21",
+    "typescript": "^3.8.3"
   },
   "dependencies": {
-    "commander": "^2.15.1",
-    "dot-object": "^1.7.0",
+    "commander": "^2.20.3",
+    "dot-object": "^1.9.0",
     "firebase-admin": "^7.1.1",
-    "fs-extra": "^7.0.0",
-    "lodash": "^4.17.5",
-    "shortid": "^2.2.12",
-    "xlsx": "^0.13.3"
+    "fs-extra": "^7.0.1",
+    "lodash": "^4.17.15",
+    "shortid": "^2.2.15",
+    "xlsx": "^0.13.5"
   },
   "bin": {
     "fire-migrate": "dist/index.js"

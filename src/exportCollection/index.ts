@@ -10,16 +10,16 @@ import { sortByKeysFn, decodeDoc } from '../shared';
 const db = admin.firestore();
 let args;
 
-export const execute = async (file: string, collectionPaths: string[], options) => {    
+export const execute = async (file: string, collectionPaths: string[], options) => {
     args = options;
     let json = {};
 
     // If no collection arguments, select all root collections
     if (collectionPaths.length === 0) {
         console.log('Selecting root collections...');
-        collectionPaths = await db.getCollections().then(colls => colls.map(coll => coll.path));    
+        collectionPaths = await db.getCollections().then(colls => colls.map(coll => coll.path));
     }
-    
+
     console.log('Getting selected collections...');
     getCollections(collectionPaths)
         .then(collections => {
@@ -33,10 +33,10 @@ export const execute = async (file: string, collectionPaths: string[], options) 
             } else if (file.endsWith('.csv')) {
                 console.log('Writing to CSV:', file);
 
-                const book = json2book(collections); 
+                const book = json2book(collections);
                 bookWriteCSV(book, file);
 
-            } else {                
+            } else {
                 console.log('Writing to JSON:', file);
 
                 return fs.writeJson(file, collections);
@@ -68,8 +68,8 @@ function getCollections(paths): Promise<any> {
         } catch (err) {
             reject(err);
         }
-    });    
-} 
+    });
+}
 
 function getCollection(path): Promise<any> {
     let collection = {};
@@ -82,6 +82,12 @@ function getCollection(path): Promise<any> {
             };
 
             for (let snap of snaps.docs) {
+                if (!snap.ref.path.includes(args.roomNameIncludes) ||
+                    snap.ref.path.includes('resources') ||
+                    snap.ref.path.includes('reports') ||
+                    snap.ref.path.includes('users')) {
+                    continue;
+                }
                 let doc = { [snap.id]: snap.data() };
 
                 // log if requested
@@ -98,7 +104,7 @@ function getCollection(path): Promise<any> {
                         _.assign(doc[snap.id], subCollections);
                     }
                 }
-                
+
                 // doc to collection
                 _.assign(collection, doc);
             }
@@ -110,7 +116,7 @@ function getCollection(path): Promise<any> {
         const collPath = `${args.collPrefix}:${collId}`;
         return ({[collPath]: collection });
     });
-}   
+}
 
 function bookWriteCSV(book: XLSX.WorkBook, file: string) {
     const fileParts = file.split('.');
@@ -125,12 +131,12 @@ function bookWriteCSV(book: XLSX.WorkBook, file: string) {
         return;
     }
     // Otherwise write an index file and csv per collection
-    
+
     // write index file
     const filename = [...fileParts];
     filename.splice(-1, 0, 'INDEX');
     XLSX.writeFile(book, filename.join('.'), { bookType: 'csv', sheet: 'INDEX' });
-    
+
     // write collection files
     indexJson.forEach(index => {
         const sheetName = index['Sheet Name'];
@@ -154,6 +160,7 @@ function json2book(json): XLSX.WorkBook {
     }
 
     const addCollection = (coll, path:string) => {
+        if (_.isEmpty(coll)) { return; }
         const sheetName = shortid.generate();
         const docs = [];
 
@@ -168,22 +175,26 @@ function json2book(json): XLSX.WorkBook {
 
             // flatten objects
             const flatDoc = dot.dot(doc);
+            delete flatDoc['type'];
+            delete flatDoc['ts'];
+            delete flatDoc['room'];
 
-            docs.push({ [args.idField]: id, ...flatDoc });
+            if (!_.isEmpty(flatDoc)) { docs.push(flatDoc); }
         });
 
-        // add collection sheet to book
-        const sheet = XLSX.utils.json_to_sheet(docs);
-        XLSX.utils.book_append_sheet(book, sheet, sheetName);
-    
-        // add an index entry
-        collectionIndex.push({
-            sheetName,
-            path,
-            depth: path.split('/').length,
-            count: docs.length
-        });
+        if (path !== 'rooms') {
+            // add collection sheet to book
+            const sheet = XLSX.utils.json_to_sheet(docs);
+            XLSX.utils.book_append_sheet(book, sheet, sheetName);
 
+            // add an index entry
+            collectionIndex.push({
+                sheetName,
+                path,
+                depth: path.split('/').length,
+                count: docs.length
+            });
+        }
     };
 
     // process collections
@@ -191,23 +202,5 @@ function json2book(json): XLSX.WorkBook {
         addCollection(coll, key.slice(collPrefixSliceLength));
     });
 
-    // index sheet
-    const indexSheet = XLSX.utils.aoa_to_sheet([
-        ['Sheet Name', 'Collection', 'Depth', 'Documents', 'Link']
-    ]);
-    collectionIndex.sort(sortByKeysFn(['depth', 'path']));
-    collectionIndex.forEach((coll, index) => {
-        const n = index + 2;
-        indexSheet['!ref'] = `A1:E${n}`;
-        indexSheet[`A${n}`] = { t: 's', v: coll.sheetName };
-        indexSheet[`B${n}`] = { t: 's', v: coll.path };
-        indexSheet[`C${n}`] = { t: 'n', v: +coll.depth };
-        indexSheet[`D${n}`] = { t: 'n', v: +coll.count };
-        indexSheet[`E${n}`] = { t: 's', v: 'link', l: { Target: `#${coll.sheetName}!A1` }};
-    });    
-    XLSX.utils.book_append_sheet(book, indexSheet, 'INDEX');
-
-    
     return book;
 }
-
