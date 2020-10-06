@@ -10,16 +10,16 @@ import { sortByKeysFn, decodeDoc } from '../shared';
 const db = admin.firestore();
 let args;
 
-export const execute = async (file: string, collectionPaths: string[], options) => {    
+export const execute = async (file: string, collectionPaths: string[], options) => {
     args = options;
     let json = {};
 
     // If no collection arguments, select all root collections
     if (collectionPaths.length === 0) {
         console.log('Selecting root collections...');
-        collectionPaths = await db.getCollections().then(colls => colls.map(coll => coll.path));    
+        collectionPaths = await db.listCollections().then(colls => colls.map(coll => coll.path));
     }
-    
+
     console.log('Getting selected collections...');
     getCollections(collectionPaths)
         .then(collections => {
@@ -33,10 +33,10 @@ export const execute = async (file: string, collectionPaths: string[], options) 
             } else if (file.endsWith('.csv')) {
                 console.log('Writing to CSV:', file);
 
-                const book = json2book(collections); 
+                const book = json2book(collections);
                 bookWriteCSV(book, file);
 
-            } else {                
+            } else {
                 console.log('Writing to JSON:', file);
 
                 return fs.writeJson(file, collections);
@@ -68,8 +68,8 @@ function getCollections(paths): Promise<any> {
         } catch (err) {
             reject(err);
         }
-    });    
-} 
+    });
+}
 
 function getCollection(path): Promise<any> {
     let collection = {};
@@ -88,17 +88,17 @@ function getCollection(path): Promise<any> {
                 args.verbose && console.log(snap.ref.path);
 
                 // Decode Doc
-                decodeDoc(doc[snap.id]);
+                // decodeDoc(doc[snap.id]);
 
                 // process sub-collections
                 if (args.subcolls) {
-                    const subCollPaths = await snap.ref.getCollections().then(colls => colls.map(coll => coll.path));
+                    const subCollPaths = await snap.ref.listCollections().then(colls => colls.map(coll => coll.path));
                     if (subCollPaths.length) {
                         const subCollections = await getCollections(subCollPaths);
                         _.assign(doc[snap.id], subCollections);
                     }
                 }
-                
+
                 // doc to collection
                 _.assign(collection, doc);
             }
@@ -110,7 +110,7 @@ function getCollection(path): Promise<any> {
         const collPath = `${args.collPrefix}:${collId}`;
         return ({[collPath]: collection });
     });
-}   
+}
 
 function bookWriteCSV(book: XLSX.WorkBook, file: string) {
     const fileParts = file.split('.');
@@ -125,12 +125,12 @@ function bookWriteCSV(book: XLSX.WorkBook, file: string) {
         return;
     }
     // Otherwise write an index file and csv per collection
-    
+
     // write index file
     const filename = [...fileParts];
     filename.splice(-1, 0, 'INDEX');
     XLSX.writeFile(book, filename.join('.'), { bookType: 'csv', sheet: 'INDEX' });
-    
+
     // write collection files
     indexJson.forEach(index => {
         const sheetName = index['Sheet Name'];
@@ -175,7 +175,7 @@ function json2book(json): XLSX.WorkBook {
         // add collection sheet to book
         const sheet = XLSX.utils.json_to_sheet(docs);
         XLSX.utils.book_append_sheet(book, sheet, sheetName);
-    
+
         // add an index entry
         collectionIndex.push({
             sheetName,
@@ -204,10 +204,10 @@ function json2book(json): XLSX.WorkBook {
         indexSheet[`C${n}`] = { t: 'n', v: +coll.depth };
         indexSheet[`D${n}`] = { t: 'n', v: +coll.count };
         indexSheet[`E${n}`] = { t: 's', v: 'link', l: { Target: `#${coll.sheetName}!A1` }};
-    });    
+    });
     XLSX.utils.book_append_sheet(book, indexSheet, 'INDEX');
 
-    
+
     return book;
 }
 
