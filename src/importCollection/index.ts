@@ -15,7 +15,7 @@ let totalDelCount = 0;
 let args;
 let delPaths = [];
 
-export const execute = async (file: string, collections: string[], options) => {    
+export const execute = async (file: string, collections: string[], options) => {
     args = options;
     if( args.dryRun ) args.verbose = true;
 
@@ -51,7 +51,7 @@ export const execute = async (file: string, collections: string[], options) => {
             throw "Unknown file extension. Supports .json, .csv or .xlsx!";
         }
 
-        await writeCollections(data);    
+        await writeCollections(data);
 
         // Final Batch commit and completion message.
         await batchCommit(false);
@@ -61,7 +61,7 @@ export const execute = async (file: string, collections: string[], options) => {
         );
         args.truncate && console.log(`Total documents deleted: ${totalDelCount}`);
         console.log(`Total documents written: ${totalSetCount}`);
-    
+
     } catch (error) {
         console.log("Import failed: ", error);
     }
@@ -88,7 +88,7 @@ async function batchDel(ref: FirebaseFirestore.DocumentReference) {
 
 async function batchSet(ref: FirebaseFirestore.DocumentReference, item, options) {
     // Log if requested
-    args.verbose && console.log(`Writing: ${ref.path}`);    
+    args.verbose && console.log(`Writing: ${ref.path}`);
 
     // Set the Document Data
     ++totalSetCount;
@@ -110,7 +110,7 @@ async function batchCommit(recycle:boolean = true) {
     args.verbose && console.log('Committing write batch...')
 
     // Commit batch
-    await batch.commit();    
+    await batch.commit();
 
     // Get a new batch
     if (recycle) {
@@ -130,7 +130,7 @@ function writeCollections(data): Promise<any> {
 }
 
 function writeCollection(data:JSON, path: string): Promise<any> {
-    return new Promise(async (resolve, reject) => {        
+    return new Promise(async (resolve, reject) => {
         const colRef = db.collection(path);
 
         if (args.truncate) {
@@ -139,19 +139,19 @@ function writeCollection(data:JSON, path: string): Promise<any> {
 
         const mode = (data instanceof Array) ? 'array' : 'object';
         for ( let [id, item] of Object.entries(data)) {
-            
+
             // doc-id preference: object key, invoked --id field, auto-id
             if (mode === 'array') {
                 id = args.autoId;
             }
-            if (_.hasIn(item, args.id)) {                
+            if (_.hasIn(item, args.id)) {
                 id = item[args.id].toString();
                 delete(item[args.id]);
             }
             if (!id || (id.toLowerCase() === args.autoId.toLowerCase()) ) {
                 id = colRef.doc().id;
-            }      
-            
+            }
+
             // Look for and process sub-collections
             const subColKeys = Object.keys(item).filter(k => k.startsWith(args.collPrefix+':'));
             for ( let key of subColKeys ) {
@@ -159,16 +159,16 @@ function writeCollection(data:JSON, path: string): Promise<any> {
                 await writeCollection(item[key], subPath);
                 delete item[key];
             }
-            
+
             // Encode item to Firestore
             encodeDoc(item);
-            
+
             // set document data into path/id
             const docRef = colRef.doc(id);
             await batchSet(docRef, item, { merge: !!(args.merge) });
 
         }
-        
+
         resolve();
     });
 }
@@ -180,13 +180,13 @@ async function truncateCollection(colRef: FirebaseFirestore.CollectionReference)
     if (delPaths.includes(path)) {
         // Collection Path already processed
         return;
-    }    
+    }
     delPaths.push(path);
 
     await colRef.get().then(async (snap) => {
         for (let doc of snap.docs) {
             // recurse sub-collections
-            const subCollPaths = await doc.ref.getCollections();
+            const subCollPaths = await doc.ref.listCollections();
             for (let subColRef of subCollPaths) {
                 await truncateCollection(subColRef);
             }
@@ -225,7 +225,7 @@ function datafromCSV(file:string) {
 // File Handlers
 
 function readJSON(path: string, collections: string[]): Promise<any> {
-    return new Promise(async (resolve, reject) => {        
+    return new Promise(async (resolve, reject) => {
         const json = await fs.readJSON(path);
         const data = {};
 
@@ -243,8 +243,8 @@ function readJSON(path: string, collections: string[]): Promise<any> {
             return;
         }
 
-        const rootJsonCollections = Object.keys(json).filter(k => k.startsWith(args.collPrefix + ':'));        
-        
+        const rootJsonCollections = Object.keys(json).filter(k => k.startsWith(args.collPrefix + ':'));
+
         // Docs of Keyed Objects, Single Anonymous Collection;
         if (rootJsonCollections.length === 0) {
             const coll = collections[0];
@@ -266,7 +266,7 @@ function readJSON(path: string, collections: string[]): Promise<any> {
                     reject(`Invalid collection path: ${collection}`);
                     return;
                 };
-                
+
                 const labelledPath = collection.split('/').map((segment, index) => {
                     return (index % 2 === 0) ? args.collPrefix + ':' + segment : segment;
                 }).join('.');
@@ -291,7 +291,7 @@ function readJSON(path: string, collections: string[]): Promise<any> {
             })
             resolve(data);
             return;
-        } 
+        }
 
         // Import options exhausted
         reject(`Invalid import options`);
@@ -302,11 +302,11 @@ function readJSON(path: string, collections: string[]): Promise<any> {
 function readCSV(file: string, collections: string[]): Promise<any> {
     return new Promise((resolve, reject) => {
         let lineCount = 0;
-        let data = {};        
-        
+        let data = {};
+
         // Single Mode CSV, single collection
         if (!file.endsWith('INDEX.csv')) {
-            args.verbose && console.log(`Mode: Single CSV Collection`); 
+            args.verbose && console.log(`Mode: Single CSV Collection`);
 
             if (collections.length > 1) {
                 reject('Multiple collection import from CSV requires an *.INDEX.csv file.');
@@ -326,8 +326,8 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, selected collections and sub-cols
         if (collections[0] !== '/') {
-            args.verbose && console.log(`Mode: Selected collections from Indexed CSV`); 
-            collections.forEach(collection => {                
+            args.verbose && console.log(`Mode: Selected collections from Indexed CSV`);
+            collections.forEach(collection => {
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
                     colls.forEach(coll => {
@@ -349,7 +349,7 @@ function readCSV(file: string, collections: string[]): Promise<any> {
 
         // Indexed Mode CSV, all collections
         if (collections[0] === '/') {
-            args.verbose && console.log(`Mode: All collections from Indexed CSV`); 
+            args.verbose && console.log(`Mode: All collections from Indexed CSV`);
             const collection = collections[0];
             _.forEach(index, coll => {
                 const colPath = coll['Collection'];
@@ -385,7 +385,7 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // Single Sheet as Collection, typically from Non-Indexed Workbook
         if (sheetNum !== undefined) {
-            args.verbose && console.log(`Mode: Single XLSX Sheet #${sheetNum}`); 
+            args.verbose && console.log(`Mode: Single XLSX Sheet #${sheetNum}`);
             const collection = collections[0];
             if(isDocumentPath(collection)) {
                 reject(`Invalid collection path for single collection: ${collection}`);
@@ -406,8 +406,8 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // Selected Collections and Sub Colls from Indexed Workbook
         if (collections[0] !== '/') {
-            args.verbose && console.log('Mode: Selected Sheets from indexed XLSX Workbook'); 
-            collections.forEach(collection => {                
+            args.verbose && console.log('Mode: Selected Sheets from indexed XLSX Workbook');
+            collections.forEach(collection => {
                 const colls = index.filter(coll => (coll['Collection'] + '/').startsWith(collection + '/'));
                 if (colls.length) {
                     colls.forEach(coll => {
@@ -427,12 +427,12 @@ function readXLSXBook(path, collections: string[]): Promise<any> {
 
         // All Collections from Indexed Workbook
         if (collections[0] === '/') {
-            args.verbose && console.log('Mode: All Sheets from indexed XLSX Workbook'); 
+            args.verbose && console.log('Mode: All Sheets from indexed XLSX Workbook');
             const collection = collections[0];
             _.forEach(index, coll => {
                 const sheetName = coll['Sheet Name'];
                 const path = cleanCollectionPath([collection, coll['Collection']]);
-                const sheet = book.Sheets[sheetName];            
+                const sheet = book.Sheets[sheetName];
                 data[path] = dataFromSheet(sheet);
             });
             resolve(data);
